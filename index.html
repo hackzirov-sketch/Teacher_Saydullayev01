@@ -203,48 +203,16 @@ body {
   .section-title { font-size: 11px; letter-spacing: 3px; margin-bottom: 20px; }
   .gold-wrap { flex: 1 1 100%; max-width: 100%; }
   .blue-wrap { max-width: 100%; }
-  .card-label { font-size: 9px; padding: 10px 6px; }
-  .card-name { font-size: 11px; }
 }
+
 </style>
 </head>
 <body>
 
 <div class="page-title">NATIJALAR</div>
 
-<!-- TEACHER CARDS -->
-{% if teachers %}
-<div class="section-title gold">— O'qituvchi natijalari —</div>
-<div class="teacher-section">
-  {% for pdf in teachers %}
-  <div class="card-wrap gold-wrap">
-    <div class="spinner"></div>
-    <div class="card-inner">
-      <canvas class="pdf-canvas"
-              data-pdf="/static/pdfs/{{ pdf }}"
-              data-type="teacher"></canvas>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<!-- STUDENT CARDS -->
-{% if students %}
-<div class="section-title blue">— O'quvchilar sertifikatlari —</div>
-<div class="student-section">
-  {% for pdf in students %}
-  <div class="card-wrap blue-wrap" style="--i: {{ loop.index }}">
-    <div class="spinner"></div>
-    <div class="card-inner">
-      <canvas class="pdf-canvas"
-              data-pdf="/static/pdfs/{{ pdf }}"
-              data-type="student"></canvas>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
+<div id="teacher-container"></div>
+<div id="student-container"></div>
 
 <div class="social-footer">
   <a href="https://t.me/Saydullaxojayev_AAA" target="_blank" class="social-link" title="Telegram: @Saydullaxojayev_AAA">
@@ -266,26 +234,55 @@ body {
 </div>
 
 <script>
-document.querySelectorAll('.pdf-canvas').forEach(function(canvas) {
-  var url = canvas.getAttribute('data-pdf');
-  var type = canvas.getAttribute('data-type');
+var teacherPdfs = ['TeacherMilliySertifikat.pdf', 'TeacherSAT.pdf'];
 
-  pdfjsLib.getDocument(url).promise.then(function(pdf) {
-    return pdf.getPage(1);
-  }).then(function(page) {
-    var desiredWidth = type === 'teacher' ? 380 : 260;
-    var dpr = window.devicePixelRatio || 1;
-    var viewport = page.getViewport({ scale: 1 });
-    var scale = (desiredWidth * dpr) / viewport.width;
-    var scaledViewport = page.getViewport({ scale: scale });
+fetch('pdfs.json').then(function(r) { return r.json(); }).then(function(files) {
+  var pdfs = files.filter(function(f) { return f.toLowerCase().endsWith('.pdf'); });
+  var teachers = pdfs.filter(function(f) { return teacherPdfs.indexOf(f) !== -1; });
+  var students = pdfs.filter(function(f) { return teacherPdfs.indexOf(f) === -1; });
+  students.sort(function(a, b) {
+    if (a.toLowerCase() === 'ulug.pdf') return -1;
+    if (b.toLowerCase() === 'ulug.pdf') return 1;
+    return a.localeCompare(b);
+  });
 
-    canvas.width = scaledViewport.width;
-    canvas.height = scaledViewport.height;
-    canvas.style.width = '100%';
+  if (teachers.length) {
+    var tc = document.getElementById('teacher-container');
+    tc.innerHTML = '<div class="section-title gold">— O\'qituvchi natijalari —</div><div class="teacher-section">' +
+      teachers.map(function(pdf) {
+        return '<div class="card-wrap gold-wrap"><div class="spinner"></div><div class="card-inner"><canvas class="pdf-canvas" data-pdf="static/pdfs/' + pdf + '" data-type="teacher"></canvas></div></div>';
+      }).join('') + '</div>';
+  }
 
-    page.render({
-      canvasContext: canvas.getContext('2d'),
-      viewport: scaledViewport
+  if (students.length) {
+    var sc = document.getElementById('student-container');
+    sc.innerHTML = '<div class="section-title blue">— O\'quvchilar sertifikatlari —</div><div class="student-section">' +
+      students.map(function(pdf, i) {
+        return '<div class="card-wrap blue-wrap" style="--i: ' + (i + 1) + '"><div class="spinner"></div><div class="card-inner"><canvas class="pdf-canvas" data-pdf="static/pdfs/' + pdf + '" data-type="student"></canvas></div></div>';
+      }).join('') + '</div>';
+  }
+
+  document.querySelectorAll('.pdf-canvas').forEach(function(canvas) {
+    var url = canvas.getAttribute('data-pdf');
+    var type = canvas.getAttribute('data-type');
+
+    pdfjsLib.getDocument(url).promise.then(function(pdf) {
+      return pdf.getPage(1);
+    }).then(function(page) {
+      var desiredWidth = type === 'teacher' ? 380 : 260;
+      var dpr = window.devicePixelRatio || 1;
+      var viewport = page.getViewport({ scale: 1 });
+      var scale = (desiredWidth * dpr) / viewport.width;
+      var scaledViewport = page.getViewport({ scale: scale });
+
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      canvas.style.width = '100%';
+
+      page.render({
+        canvasContext: canvas.getContext('2d'),
+        viewport: scaledViewport
+      });
     });
   });
 });
